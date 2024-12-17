@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<module-content version="12.2">
+    <module id="7959cf61-d022-405b-a80b-b5b7138dba49" name="oDataWizard">
+        <resource path="src" publish="true"/>
+    </module>
+</module-content>

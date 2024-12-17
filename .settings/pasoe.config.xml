@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<PASOEConfigDetails version="12.2">
+    <webapp>odatawizard</webapp>
+    <servers>
+        <server>oepas1 in desktop-j4c6i4c.oepas1 (Progress Application Server for OpenEdge 12.2)</server>
+    </servers>
+</PASOEConfigDetails>
