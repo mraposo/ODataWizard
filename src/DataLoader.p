@@ -20,6 +20,13 @@
 /* ************************  Function Prototypes ********************** */
 
 
+FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE 
+    (INPUT cQueryString AS CHARACTER,
+     INPUT cOperator AS CHARACTER) FORWARD.
+
+FUNCTION getField2 RETURNS CHARACTER  PRIVATE
+    (INPUT cQueryString AS CHARACTER) FORWARD.
+
 FUNCTION URIhasFilter RETURNS LOGICAL PRIVATE
     (  ) FORWARD.
 
@@ -140,6 +147,63 @@ END PROCEDURE.
 
 /* ************************  Function Implementations ***************** */
 
+FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE
+    (INPUT cQueryString AS CHARACTER, INPUT cOperator AS CHARACTER):
+    /*------------------------------------------------------------------------------
+     Purpose:
+     Notes:
+    ------------------------------------------------------------------------------*/    
+
+    DEFINE VARIABLE cOperAndValue AS CHARACTER NO-UNDO.
+    
+
+        
+    ASSIGN
+     cOperAndValue = SUBSTRING(cQueryString, INDEX(cQueryString,cOperator))
+     cOperAndValue = REPLACE(cOperAndValue,cOperator, "")
+     cOperAndValue = REPLACE(cOperAndValue,getField2(cQueryString), "").
+        
+    RETURN cOperAndValue.
+    
+END FUNCTION.
+
+FUNCTION getField2 RETURNS CHARACTER PRIVATE
+    (INPUT cQueryString AS CHARACTER):
+    /*------------------------------------------------------------------------------
+     Purpose:
+     Notes:  
+    ------------------------------------------------------------------------------*/    
+
+    DEFINE VARIABLE cField1          AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cField2          AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperator        AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperatorsList   AS CHARACTER NO-UNDO INIT "eq,ne,gt,ge,lt,le".
+    DEFINE VARIABLE iCounter         AS INTEGER   NO-UNDO.
+    DEFINE VARIABLE cCurrentOperator AS CHARACTER NO-UNDO.
+    
+    cOperator = IF INDEX(cQueryString," and ") <> 0 THEN " and " ELSE " or ". //hier moeten spacties voor en achter!
+
+    ASSIGN 
+        cField1 = ENTRY(1,cQueryString," ")
+        cField2 = SUBSTRING(cQueryString, INDEX(cQueryString,cOperator))                                     
+        cField2 = TRIM(REPLACE(cField2,cOperator, ""))
+        .
+        
+    DO iCounter = 1 TO NUM-ENTRIES(cOperatorsList,","):
+         
+        cCurrentOperator = ENTRY(1,cField2, " ").   
+         
+        IF cCurrentOperator = ENTRY(iCounter,cOperatorsList) THEN
+            RETURN cField1.         
+    END.
+    
+    cField2 = ENTRY(1,cField2," "). 
+    
+    RETURN cField2.
+         
+END FUNCTION.
+
+
 FUNCTION URIhasFilter RETURNS LOGICAL PRIVATE
     (  ):
     /*------------------------------------------------------------------------------
@@ -158,44 +222,32 @@ FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
      Purpose:
      Notes:
     ------------------------------------------------------------------------------*/    
-    DEFINE VARIABLE cWhereClause AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cQueryString AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cFilter2     AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE resultString AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cOperator    AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cWhereClause    AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cQueryString    AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cFilter2        AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperator       AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperAndValue   AS CHARACTER NO-UNDO.
         
     cQueryString = REPLACE(cFilter,"$filter=","").
-        
-    //CustNum gt 4000 and lt 4020
-    //CustNum gt 4000 and Customer.CustNum lt 4020 
     
-    //CustNum gt 4000 and SalesRep eq 'RDR'
-    //CustNum gt 4000 and cTabel.SalesRep eq 'RDR'
-    
-    IF INDEX(cQueryString,"and") <> 0 OR 
-       INDEX(cQueryString,"or")  <> 0 THEN DO:  
+    IF INDEX(cQueryString," and ") <> 0 OR 
+       INDEX(cQueryString," or ")  <> 0 THEN DO:  
         
-        cOperator = IF INDEX(cQueryString,"and") <> 0 THEN "and " ELSE "or ".
-        
+        cOperator = IF INDEX(cQueryString," and ") <> 0 THEN "and " ELSE "or ". //hier moeten GEEN spacties voor!!
+
         ASSIGN
             cFilter2     = SUBSTITUTE("&1.&2", 
                                       cTabel,    
-                                      ENTRY(1,cQueryString," "))
-            resultString = SUBSTRING(cQueryString, INDEX(cQueryString,cOperator))                                     
-            resultString = REPLACE(resultString,cOperator, "")
+                                      getField2(cQueryString)).
             cQueryString = SUBSTITUTE("&1 &2 &3 &4",
                                       ENTRY(1,cQueryString,cOperator),
                                       cOperator,
                                       cFilter2,
-                                      resultString).        
-    
+                                      getOperatorAndValue(cQueryString,cOperator)).        
     END.
-        
+    
     cWhereClause = SUBSTITUTE("WHERE &1.&2",cTabel,
-                                            cQueryString).
-
-    MESSAGE "cWhereClause = " cWhereClause
-        VIEW-AS ALERT-BOX.
+        cQueryString).
 
     RETURN cWhereClause.
         
