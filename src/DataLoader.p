@@ -25,7 +25,7 @@ FUNCTION URIhasFilter RETURNS LOGICAL PRIVATE
 
 FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
     (INPUT cFilter AS CHARACTER,
-     INPUT cTabel AS CHARACTER) FORWARD.
+    INPUT cTabel AS CHARACTER) FORWARD.
 
 
 /* ***************************  Main Block  *************************** */
@@ -39,12 +39,12 @@ DEFINE VARIABLE gcFilter AS CHARACTER NO-UNDO.
 DEFINE VARIABLE gcWhereClause AS CHARACTER NO-UNDO.
 
 MESSAGE "gatewayData.p >>>>>>>>>>>>" SKIP 
-        "PathParameterNames =======" poRequest:PathParameterNames SKIP
-        "poRequest:RemoteAddress ==" poRequest:RemoteAddress SKIP
-        "ResolvedWebAppPath =======" poRequest:ResolvedWebAppPath SKIP
-        "URI  =====================" poRequest:URI SKIP
-        "poRequest:PathInfo =======" poRequest:PathInfo SKIP 
-        "WebAppPath ===============" poRequest:WebAppPath SKIP
+    "PathParameterNames =======" poRequest:PathParameterNames SKIP
+    "poRequest:RemoteAddress ==" poRequest:RemoteAddress SKIP
+    "ResolvedWebAppPath =======" poRequest:ResolvedWebAppPath SKIP
+    "URI  =====================" poRequest:URI SKIP
+    "poRequest:PathInfo =======" poRequest:PathInfo SKIP 
+    "WebAppPath ===============" poRequest:WebAppPath SKIP
     VIEW-AS ALERT-BOX.
 
    
@@ -73,10 +73,10 @@ RUN createOutputDataset.
 
 /* **********************  Internal Procedures  *********************** */
 PROCEDURE createOutputDataset:
-/*------------------------------------------------------------------------------
- Purpose:
- Notes:
-------------------------------------------------------------------------------*/
+    /*------------------------------------------------------------------------------
+     Purpose:
+     Notes:
+    ------------------------------------------------------------------------------*/
 
     DEFINE VARIABLE hQuery     AS HANDLE NO-UNDO.
     DEFINE VARIABLE hBufferDB  AS HANDLE NO-UNDO.
@@ -142,28 +142,58 @@ END PROCEDURE.
 
 FUNCTION URIhasFilter RETURNS LOGICAL PRIVATE
     (  ):
-/*------------------------------------------------------------------------------
- Purpose:
- Notes:
-------------------------------------------------------------------------------*/    
+    /*------------------------------------------------------------------------------
+     Purpose:
+     Notes:
+    ------------------------------------------------------------------------------*/    
   
-  RETURN INDEX(gcURI,"?$filter") <> 0.  //?filter
+    RETURN INDEX(gcURI,"?$filter") <> 0.  //?filter
         
 END FUNCTION.
 
 
 FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
     (INPUT cFilter AS CHARACTER, INPUT cTabel AS CHARACTER):
-/*------------------------------------------------------------------------------
- Purpose:
- Notes:
-------------------------------------------------------------------------------*/    
+    /*------------------------------------------------------------------------------
+     Purpose:
+     Notes:
+    ------------------------------------------------------------------------------*/    
     DEFINE VARIABLE cWhereClause AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cQueryString AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cFilter2     AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE resultString AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperator    AS CHARACTER NO-UNDO.
+        
+    cQueryString = REPLACE(cFilter,"$filter=","").
+        
+    //CustNum gt 4000 and lt 4020
+    //CustNum gt 4000 and Customer.CustNum lt 4020 
     
-    cWhereClause = SUBSTITUTE("WHERE &1.&2 = &3",cTabel,
-                                            ENTRY(2,cFilter,"="),
-                                            ENTRY(3,cFilter,"=")).
-                                                
+    //CustNum gt 4000 and SalesRep eq 'RDR'
+    //CustNum gt 4000 and cTabel.SalesRep eq 'RDR'
+    
+    IF INDEX(cQueryString,"and") <> 0 OR 
+       INDEX(cQueryString,"or")  <> 0 THEN DO:  
+        
+        cOperator = IF INDEX(cQueryString,"and") <> 0 THEN "and " ELSE "or ".
+        
+        ASSIGN
+            cFilter2     = SUBSTITUTE("&1.&2", 
+                                      cTabel,    
+                                      ENTRY(1,cQueryString," "))
+            resultString = SUBSTRING(cQueryString, INDEX(cQueryString,cOperator))                                     
+            resultString = REPLACE(resultString,cOperator, "")
+            cQueryString = SUBSTITUTE("&1 &2 &3 &4",
+                                      ENTRY(1,cQueryString,cOperator),
+                                      cOperator,
+                                      cFilter2,
+                                      resultString).        
+    
+    END.
+        
+    cWhereClause = SUBSTITUTE("WHERE &1.&2",cTabel,
+                                            cQueryString).
+
     MESSAGE "cWhereClause = " cWhereClause
         VIEW-AS ALERT-BOX.
 
