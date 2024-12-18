@@ -12,13 +12,7 @@
     Notes       :
   ----------------------------------------------------------------------*/
 
-/* ***************************  Definitions  ************************** */
-
-
-/* ********************  Preprocessor Definitions  ******************** */
-
 /* ************************  Function Prototypes ********************** */
-
 
 FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE 
     (INPUT cQueryString AS CHARACTER,
@@ -44,15 +38,6 @@ DEFINE VARIABLE gcPath    AS CHARACTER NO-UNDO.
 DEFINE VARIABLE gcTabel   AS CHARACTER NO-UNDO.
 DEFINE VARIABLE gcFilter AS CHARACTER NO-UNDO.
 DEFINE VARIABLE gcWhereClause AS CHARACTER NO-UNDO.
-
-MESSAGE "gatewayData.p >>>>>>>>>>>>" SKIP 
-    "PathParameterNames =======" poRequest:PathParameterNames SKIP
-    "poRequest:RemoteAddress ==" poRequest:RemoteAddress SKIP
-    "ResolvedWebAppPath =======" poRequest:ResolvedWebAppPath SKIP
-    "URI  =====================" poRequest:URI SKIP
-    "poRequest:PathInfo =======" poRequest:PathInfo SKIP 
-    "WebAppPath ===============" poRequest:WebAppPath SKIP
-    VIEW-AS ALERT-BOX.
 
    
 ASSIGN
@@ -115,8 +100,6 @@ PROCEDURE createOutputDataset:
     
     hQuery:SET-BUFFERS(hBufferDB).
     hQuery:QUERY-PREPARE (SUBSTITUTE("FOR EACH &1 NO-LOCK &2",gcTabel,gcWhereClause)).
-    hQuery:QUERY-OPEN.
-    hQuery:GET-FIRST ().
     
     hDatasource:QUERY = hQuery.
         
@@ -130,6 +113,8 @@ PROCEDURE createOutputDataset:
     
         
     FINALLY:
+        IF VALID-OBJECT(hOutputDataset) THEN
+            DELETE OBJECT hOutputDataset.
         IF VALID-OBJECT(hQuery) THEN
             DELETE OBJECT hQuery.
         IF VALID-OBJECT(hDatasource) THEN
@@ -156,12 +141,10 @@ FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE
 
     DEFINE VARIABLE cOperAndValue AS CHARACTER NO-UNDO.
     
-
-        
     ASSIGN
-     cOperAndValue = SUBSTRING(cQueryString, INDEX(cQueryString,cOperator))
-     cOperAndValue = REPLACE(cOperAndValue,cOperator, "")
-     cOperAndValue = REPLACE(cOperAndValue,getField2(cQueryString), "").
+        cOperAndValue = SUBSTRING(cQueryString, INDEX(cQueryString,cOperator))
+        cOperAndValue = REPLACE(cOperAndValue,cOperator, "")
+        cOperAndValue = REPLACE(cOperAndValue,getField2(cQueryString), "").
         
     RETURN cOperAndValue.
     
@@ -240,14 +223,15 @@ FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
                                       cTabel,    
                                       getField2(cQueryString)).
             cQueryString = SUBSTITUTE("&1 &2 &3 &4",
-                                      ENTRY(1,cQueryString,cOperator),
+                                      ENTRY(1,cQueryString,cOperator),          
                                       cOperator,
                                       cFilter2,
-                                      getOperatorAndValue(cQueryString,cOperator)).        
+                                      getOperatorAndValue(cQueryString,cOperator)).
     END.
-    
-    cWhereClause = SUBSTITUTE("WHERE &1.&2",cTabel,
-        cQueryString).
+
+    cWhereClause = SUBSTITUTE("WHERE &1.&2",
+                              cTabel,
+                              cQueryString).
 
     RETURN cWhereClause.
         
