@@ -14,6 +14,10 @@
 
 /* ************************  Function Prototypes ********************** */
 
+FUNCTION makeQuery RETURNS HANDLE PRIVATE
+    (INPUT cTabel AS CHARACTER,
+     INPUT cField AS CHARACTER) FORWARD.
+
 FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE 
     (INPUT cQueryString AS CHARACTER,
      INPUT cOperator AS CHARACTER) FORWARD.
@@ -132,6 +136,27 @@ END PROCEDURE.
 
 /* ************************  Function Implementations ***************** */
 
+FUNCTION makeQuery RETURNS HANDLE PRIVATE
+    (INPUT cTabel AS CHARACTER, INPUT cField AS CHARACTER):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+
+        DEFINE VARIABLE hQuery         AS HANDLE NO-UNDO.
+        DEFINE VARIABLE cPrepareString AS CHARACTER NO-UNDO.
+        
+        cPrepareString = SUBSTITUTE("FOR EACH &1", cTabel).
+        CREATE QUERY hQuery.
+        
+        hQuery:SET-BUFFERS (cTabel).
+        hQuery:QUERY-PREPARE (cPrepareString).
+        
+        RETURN hQuery.
+
+END FUNCTION.
+
+
 FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE
     (INPUT cQueryString AS CHARACTER, INPUT cOperator AS CHARACTER):
     /*------------------------------------------------------------------------------
@@ -149,6 +174,7 @@ FUNCTION getOperatorAndValue RETURNS CHARACTER PRIVATE
     RETURN cOperAndValue.
     
 END FUNCTION.
+
 
 FUNCTION getField2 RETURNS CHARACTER PRIVATE
     (INPUT cQueryString AS CHARACTER):
@@ -205,14 +231,21 @@ FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
      Purpose:
      Notes:
     ------------------------------------------------------------------------------*/    
-    DEFINE VARIABLE cWhereClause    AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cQueryString    AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cFilter2        AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cOperator       AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cOperAndValue   AS CHARACTER NO-UNDO.
-        
+    DEFINE VARIABLE cWhereClause  AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cQueryString  AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cFilter2      AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperator     AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cOperAndValue AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cField        AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cParams       AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE iPos          AS INTEGER   NO-UNDO.
+    DEFINE VARIABLE iPosEind      AS INTEGER   NO-UNDO.
+    DEFINE VARIABLE cValue        AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cResult       AS CHARACTER NO-UNDO.  
+      
     cQueryString = REPLACE(cFilter,"$filter=","").
     
+   
     IF INDEX(cQueryString," and ") <> 0 OR 
        INDEX(cQueryString," or ")  <> 0 THEN DO:  
         
@@ -228,6 +261,38 @@ FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
                                       cFilter2,
                                       getOperatorAndValue(cQueryString,cOperator)).
     END.
+    ELSE IF INDEX(cQueryString,"endswith(") <> 0 THEN DO:  // NOT?!?!
+        
+        iPos     = INDEX(cQueryString,"(").
+        iPosEind = INDEX(cQueryString,")").
+        cParams  = TRIM(SUBSTRING(cQueryString,iPos,iPosEind),"()").
+        
+        cField   = ENTRY(1,cParams).
+        cValue   = TRIM(ENTRY(2,cParams),"'").
+
+        cQueryString = SUBSTITUTE("&1 MATCHES('*&2')",
+                                 cField,
+                                 cValue).
+        
+    END.
+    ELSE IF INDEX(cQueryString,"has ") <> 0 THEN DO:
+        //has Customer.Name'Mario'
+        
+        cField = ENTRY(2,cQueryString,".").
+        cField = ENTRY(1,cField,"'").
+        
+        cValue = TRIM(ENTRY(2,cQueryString,"'"), "'").
+        
+        cQueryString = SUBSTITUTE("&1 MATCHES('*&2*')",
+                                 cField,
+                                 cValue).
+                                  
+                                          
+        MESSAGE "cField = " cField SKIP 
+                "cValue = " cValue SKIP 
+                "cQueryString" cQueryString 
+            VIEW-AS ALERT-BOX.                                  
+    END. 
 
     cWhereClause = SUBSTITUTE("WHERE &1.&2",
                               cTabel,
