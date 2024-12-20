@@ -1,0 +1,17 @@
+Customer
+
+CustNum gt 4000
+CustNum gt 4000 and lt 5000
+CustNum gt 4000 and SalesRep eq 'RDR'
+CustNum lt 4000 and Country eq 'Finland'
+
+CustNum gt 4000 and CustNum lt 5000 and Country eq 'USA'
+
+
+CustNum eq 4000 or eq 5000
+CustNum eq 4000 or Country eq 'Finland'
+
+
+//voor morgen:	(has and endswith)
+// 				meerdere and's of or's
+//              Frank PASOE hosting?
