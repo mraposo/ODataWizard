@@ -7,11 +7,17 @@
 
     Description : 
 
-    Author(s)   : mario
+    Author(s)   : Mario & Levi
     Created     : Mon Dec 16 14:46:13 CET 2024
     Notes       :
   ----------------------------------------------------------------------*/
+DEFINE TEMP-TABLE ttETag NO-UNDO
+  FIELD rawhack AS RAW. 
+
 /* ************************  Function Prototypes ********************** */
+FUNCTION HashRecord RETURNS CHARACTER PRIVATE
+    (INPUT hBuffer AS HANDLE) FORWARD.
+
 FUNCTION URIhasFilter RETURNS LOGICAL PRIVATE
     (  ) FORWARD.
 
@@ -45,6 +51,18 @@ RUN createOutputDataset.
 
 
 /* **********************  Internal Procedures  *********************** */
+PROCEDURE generateETag:
+/*------------------------------------------------------------------------------
+ Notes: Hoe verzin je een record versie als OpenEdge die zelf niet bijhoudt ?
+        Het hele database record hashen is een quick & ditry oplossing - als het record verandert, krijg je een andere hash waarde 
+------------------------------------------------------------------------------*/
+    DEFINE INPUT PARAMETER DATASET-HANDLE hDataSet. 
+    
+    SELF::Etag = HashRecord(SELF:DATA-SOURCE:GET-SOURCE-BUFFER()).
+
+END PROCEDURE.
+
+
 PROCEDURE createOutputDataset:
     /*------------------------------------------------------------------------------
      Purpose:
@@ -72,10 +90,12 @@ PROCEDURE createOutputDataset:
     CREATE TEMP-TABLE hTempTable.
     
     hTempTable:CREATE-LIKE (hBufferDB).
-    
+    hTemptable:ADD-NEW-FIELD("Etag","CHARACTER").
     hTempTable:TEMP-TABLE-PREPARE (gcTabel).
     
     hBufferTT = hTempTable:DEFAULT-BUFFER-HANDLE.
+ 
+    hBufferTT:BUFFER-FIELD("Etag"):SERIALIZE-NAME = "@odata.etag".
     
     hOutputDataset:ADD-BUFFER (hBufferTT).
     
@@ -86,12 +106,13 @@ PROCEDURE createOutputDataset:
         
     hBufferTT:ATTACH-DATA-SOURCE (hDatasource).   
     
+    hBufferTT:SET-CALLBACK("AFTER-ROW-FILL","generateETag").
+    
     hOutputDataset:FILL(). 
         
     hOutputDataset:WRITE-JSON("longchar",p-output,TRUE,?).
         
     hQuery:QUERY-CLOSE(). 
-    
         
     FINALLY:
         IF VALID-OBJECT(hOutputDataset) THEN
@@ -110,17 +131,31 @@ PROCEDURE createOutputDataset:
     
 END PROCEDURE.
 
-
 /* ************************  Function Implementations ***************** */
+
+FUNCTION HashRecord RETURNS CHARACTER PRIVATE
+    (INPUT hBuffer AS HANDLE):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+  
+  CREATE ttETag.
+  
+  hBuffer:RAW-TRANSFER(TRUE,BUFFER ttETag:BUFFER-FIELD("rawhack"):HANDLE).
+  
+  RETURN STRING(BASE64-ENCODE(MESSAGE-DIGEST("SHA-1",ttETag.rawhack))).
+        
+END FUNCTION.
 
 FUNCTION URIhasFilter RETURNS LOGICAL PRIVATE
     (  ):
-    /*------------------------------------------------------------------------------
-     Purpose:
-     Notes:
-    ------------------------------------------------------------------------------*/    
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
   
-    RETURN INDEX(gcURI,"?$filter") <> 0.  //?filter
+    RETURN INDEX(gcURI,"?$filter") <> 0.
         
 END FUNCTION.
 
@@ -140,8 +175,6 @@ FUNCTION getWhereClause RETURNS CHARACTER PRIVATE
     
     MESSAGE "cWhereClause = " cWhereClause
         VIEW-AS ALERT-BOX.
-
-
 
     RETURN cWhereClause.
         

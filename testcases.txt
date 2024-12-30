@@ -5,11 +5,52 @@ CustNum gt 4000 and lt 5000
 CustNum gt 4000 and SalesRep eq 'RDR'
 CustNum lt 4000 and Country eq 'Finland'
 
-CustNum gt 4000 and CustNum lt 5000 and Country eq 'USA'
+
 
 
 CustNum eq 4000 or eq 5000
-CustNum eq 4000 or Country eq 'Finland'
+(CustNum eq 4000) or (Country eq 'Finland')
+
+EmpNum eq 5 or City eq 'New York'
+
+endswith(Name,'est')
+
+
+has Customer.Name'Mario'
+
+has Employee.FirstName'has '
+
+
+CustNum gt 4000 and CustNum lt 5000 and Country eq 'USA' 
+
+customer?$filter=CustNum gt 4000 and endswith(CustNum,5) or Customer.CustNum gt 5000 and endswith(Name,'st') or has Customer.Name'Mario'
+
+
+customer?$filter=(CustNum gt 4000 and endswith(CustNum,5) and has Customer.SalesRep'DKP') or Customer.CustNum gt 5000 and endswith(Name,'st') or has Customer.Name'Gun'
+		   
+		   
+order?$filter=(OrderNum gt 4000 and CustNum eq 3000)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 //voor morgen:	(has and endswith)
