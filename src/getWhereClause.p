@@ -1,6 +1,20 @@
+/*------------------------------------------------------------------------
+    File        : getWhereClause.p
+    Purpose     : 
 
+    Syntax      :
+
+    Description : 
+
+    Author(s)   : Mario & Levi
+    Created     : Mon Dec 24 14:46:13 CET 2024
+    Notes       :
+  ----------------------------------------------------------------------*/
 
 /* ************************  Function Prototypes ********************** */
+
+FUNCTION getDataType RETURNS CHARACTER PRIVATE
+    (INPUT piField AS CHARACTER) FORWARD.
 
 FUNCTION replaceHas RETURNS CHARACTER PRIVATE
     (INPUT piQueryString AS CHARACTER) FORWARD.
@@ -12,60 +26,76 @@ FUNCTION replaceEndsWith RETURNS CHARACTER PRIVATE
     (INPUT piQueryString AS CHARACTER) FORWARD.
 
 /* ***************************  Main Block  *************************** */
-
-DEFINE INPUT PARAMETER piQueryString  AS CHARACTER NO-UNDO.
-DEFINE INPUT PARAMETER piTabel        AS CHARACTER NO-UNDO.
-DEFINE OUTPUT PARAMETER poWhereClause AS CHARACTER NO-UNDO.
+DEFINE INPUT  PARAMETER piQueryString  AS CHARACTER NO-UNDO.
+DEFINE INPUT  PARAMETER piTabel        AS CHARACTER NO-UNDO.
+DEFINE OUTPUT PARAMETER poWhereClause  AS CHARACTER NO-UNDO.
 
 DEFINE VARIABLE iCounter     AS INTEGER   NO-UNDO.
-DEFINE VARIABLE cTabel       AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cFieldName   AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cFieldList   AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcTabel       AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcFieldName   AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcFieldList   AS CHARACTER NO-UNDO.
 DEFINE VARIABLE dbBuffer     AS HANDLE    NO-UNDO.
-DEFINE VARIABLE cFieldType   AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cFieldListTypes AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cFieldListNames AS CHARACTER NO-UNDO.
-DEFINE VARIABLE cQueryString    AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcFieldType   AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcFieldListTypes AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcFieldListNames AS CHARACTER NO-UNDO.
+DEFINE VARIABLE gcQueryString    AS CHARACTER NO-UNDO.
 
-cQueryString = piQueryString.
-cTabel       = piTabel.
+gcQueryString = piQueryString.
+gcTabel       = piTabel.
 
-cQueryString = removeTableNameFromQueryStringIfNotQuoted(cQueryString).
+gcQueryString = removeTableNameFromQueryStringIfNotQuoted(gcQueryString).
 
-CREATE BUFFER dbBuffer FOR TABLE cTabel.
+CREATE BUFFER dbBuffer FOR TABLE gcTabel.
 
 DO iCounter = 1 TO dbBuffer:NUM-FIELDS:
     
-    cFieldName = dbBuffer:BUFFER-FIELD(iCounter):NAME.
-    cFieldType = dbBuffer:BUFFER-FIELD(iCounter):DATA-TYPE.
+    gcFieldName = dbBuffer:BUFFER-FIELD(iCounter):NAME.
+    gcFieldType = dbBuffer:BUFFER-FIELD(iCounter):DATA-TYPE.
     
-    cFieldListNames = IF iCounter > 1 
-                        THEN cFieldListNames + "," + cFieldName 
-                        ELSE cFieldName.
+    gcFieldListNames = IF iCounter > 1 
+                        THEN gcFieldListNames + "," + gcFieldName 
+                        ELSE gcFieldName.
                         
-    cFieldListTypes = IF iCounter > 1 
-                        THEN cFieldListTypes + "," + cFieldType 
-                        ELSE cFieldType.                      
+    gcFieldListTypes = IF iCounter > 1 
+                        THEN gcFieldListTypes + "," + gcFieldType 
+                        ELSE gcFieldType.                      
 END.
 
-DO iCounter = 1 TO NUM-ENTRIES(cFieldListNames):
-    cQueryString = REPLACE(cQueryString, ENTRY(iCounter,cFieldListNames), cTabel + "." + ENTRY(iCounter,cFieldListNames)).
+DO iCounter = 1 TO NUM-ENTRIES(gcFieldListNames):
+    gcQueryString = REPLACE(gcQueryString, ENTRY(iCounter,gcFieldListNames), gcTabel + "." + ENTRY(iCounter,gcFieldListNames)).
 END.
 
-IF INDEX(cQueryString,"endswith(") <> 0 THEN
-    cQueryString = replaceEndsWith(cQueryString).
+IF INDEX(gcQueryString,"endswith(") <> 0 THEN
+    gcQueryString = replaceEndsWith(gcQueryString).
 
-
-/*          TODO   !!                         */
-/*IF INDEX(cQueryString,"has ") <> 0 THEN     */
-/*    cQueryString = replaceHas(cQueryString).*/
-
-
-poWhereClause = "WHERE " + cQueryString.
-
+IF INDEX(gcQueryString,"has ") <> 0 THEN
+    gcQueryString = replaceHas(gcQueryString).
+    
+    
+poWhereClause = "WHERE " + gcQueryString.
 
 
 /* ************************  Function Implementations ***************** */
+
+FUNCTION getDataType RETURNS CHARACTER PRIVATE
+    (INPUT piField AS CHARACTER):
+/*------------------------------------------------------------------------------
+ Purpose:
+ Notes:
+------------------------------------------------------------------------------*/    
+    DEFINE VARIABLE iCounter  AS INTEGER NO-UNDO.
+    DEFINE VARIABLE cDataType AS CHARACTER NO-UNDO.
+    
+    DO iCounter = 1 TO NUM-ENTRIES(gcFieldListNames):
+
+    IF ENTRY(iCounter,gcFieldListNames) = piField THEN
+        cDataType = ENTRY(iCounter,gcFieldListTypes).
+    END.
+    
+    RETURN cDataType.
+        
+END FUNCTION.
+
 FUNCTION replaceHas RETURNS CHARACTER PRIVATE
     (INPUT piQueryString AS CHARACTER):
 /*------------------------------------------------------------------------------
@@ -75,38 +105,42 @@ FUNCTION replaceHas RETURNS CHARACTER PRIVATE
     DEFINE VARIABLE iPosStart      AS INTEGER   NO-UNDO.
     DEFINE VARIABLE iPosEnd        AS INTEGER   NO-UNDO.
     DEFINE VARIABLE cEndsWithPart  AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE iPosBeginQuote AS INTEGER NO-UNDO.
-    DEFINE VARIABLE cHasPart AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE cHasField AS CHARACTER NO-UNDO.
-//QueryString = has Customer.Name'Mario'
+    DEFINE VARIABLE iPosBeginQuote AS INTEGER   NO-UNDO.
+    DEFINE VARIABLE cHasPart       AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cHasField      AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cHasValue      AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE iPosDot        AS INTEGER   NO-UNDO.
+    DEFINE VARIABLE replaceString  AS CHARACTER NO-UNDO.
+    DEFINE VARIABLE cDataType      AS CHARACTER NO-UNDO.
 
     DO WHILE INDEX(piQueryString, "has ") > 0:
         iPosStart = INDEX(piQueryString,"has ").
         iPosBeginQuote = INDEX(piQueryString, "'", iPosStart).
         iPosEnd   = INDEX(piQueryString, "'", iPosBeginQuote + 1).  
         
-        cHasPart = SUBSTRING(piQueryString,iPosStart + 4, iPosEnd - (iPosStart + 4)). //shiittt
+        cHasPart = SUBSTRING(piQueryString,iPosStart + 4, iPosEnd - (iPosStart + 4)).
         
-        cHasField = SUBSTRING(cQueryString,iPosBeginQuote, R-INDEX(cQueryString, ".", iPosBeginQuote ) + 1 ) .
+        cHasPart = REPLACE(cHasPart,gcTabel + "." , "").
         
-        MESSAGE "cHasPart =  " cHasPart
-                "cHasField = " cHasField
-        VIEW-AS ALERT-BOX.
+        iPosDot  = INDEX(cHasPart, ".").
+        
+        cHasField = ENTRY(1,cHasPart,"'").
+        cHasValue = ENTRY(2,cHasPart,"'").
+        
+        cDataType = getDataType(cHasField).
+            
+        replaceString = SUBSTITUTE("&1 MATCHES '*&2*'",
+                                    IF cDataType <> "character"
+                                        THEN "STRING(" + cHasField + ")"
+                                        ELSE cHasField,
+                                    cHasValue).
+                                    
+        piQueryString = REPLACE(piQueryString, 
+                                SUBSTRING(piQueryString, iPosStart, (iPosEnd - iPosStart) + 1), 
+                                replaceString).
     END.
     
-    
-/*    IF INDEX(cQueryString,"has ") <> 0 THEN DO:        */
-/*                                                       */
-/*        cField = ENTRY(2,cQueryString,".").            */
-/*        cField = ENTRY(1,cField,"'").                  */
-/*                                                       */
-/*        cValue = TRIM(ENTRY(2,cQueryString,"'"), "'"). */
-/*                                                       */
-/*        cQueryString = SUBSTITUTE("&1 MATCHES('*&2*')",*/
-/*                                 cField,               */
-/*                                 cValue).              */
-/*    END.                                               */
-/*                                                       */
+    RETURN piQueryString.
         
 END FUNCTION.
 
@@ -121,31 +155,29 @@ FUNCTION removeTableNameFromQueryStringIfNotQuoted RETURNS CHARACTER PRIVATE
     DEFINE VARIABLE lInsideQuote AS LOGICAL   NO-UNDO.
     DEFINE VARIABLE cCurrentValue AS CHARACTER   NO-UNDO.
     
-    /* Loop door elk karakter in de string */
+    // Loop door elk karakter in de string 
     DO iPos = 1 TO LENGTH(piQueryString):
-        /* Kijk of we een quote tegenkomen */
         
         cCurrentValue = SUBSTRING(piQueryString, iPos, 1).
         
         IF cCurrentValue = "'" THEN 
             lInsideQuote = NOT lInsideQuote.
     
-        /* Als we buiten quotes zijn, vervang de tabelnaam */
+        // Als we buiten quotes zijn, vervang de tabelnaam
         IF NOT lInsideQuote THEN DO:
-            /* Controleer of de tekst begint met cTabel + "." */
-            IF SUBSTRING(piQueryString, iPos, LENGTH(cTabel) + 1) = cTabel + "." THEN DO:
-                /* Sla de tabelnaam over en vervang het door niets */
-                iPos = iPos + LENGTH(cTabel).
+            // Controleer of de tekst begint met cTabel + "."
+            IF SUBSTRING(piQueryString, iPos, LENGTH(gcTabel) + 1) = gcTabel + "." THEN DO:
+                // Sla de tabelnaam over en vervang het door niets
+                iPos = iPos + LENGTH(gcTabel).
             END.
             ELSE
                 cResult = cResult + SUBSTRING(piQueryString, iPos, 1).
         END.
         ELSE
-            /* Voeg gewoon toe als we binnen quotes zijn */
+            // Voeg gewoon toe als we binnen quotes zijn
             cResult = cResult + SUBSTRING(piQueryString, iPos, 1).
     END.
     
-    /* Resultaat tonen */
     RETURN cResult.
         
 END FUNCTION.
@@ -159,38 +191,28 @@ FUNCTION replaceEndsWith RETURNS CHARACTER PRIVATE
     DEFINE VARIABLE cEndsWithField AS CHARACTER NO-UNDO.
     DEFINE VARIABLE cEndsWithValue AS CHARACTER NO-UNDO.
     DEFINE VARIABLE replaceString  AS CHARACTER NO-UNDO.
-    DEFINE VARIABLE i AS INTEGER NO-UNDO.            
-    DEFINE VARIABLE cDataType AS CHARACTER NO-UNDO.
-/*DEBUGGER:INITIATE(). */
-/*DEBUGGER:SET-BREAK().*/
-
+    DEFINE VARIABLE i              AS INTEGER   NO-UNDO.            
+    DEFINE VARIABLE cDataType      AS CHARACTER NO-UNDO.
+    
     DO WHILE INDEX(piQueryString, "endswith(") > 0:
         
         iPosStart = INDEX(piQueryString,"endswith(").
         iPosEnd   = INDEX(piQueryString,")", iPosStart). //vind t sluit haakje beginnen bij startposititie: iPosStart.  
         
-        // +9: Omdat je de string endswith( wilt overslaan, tel je 9 op bij de startpositie. De lengte van het woord endswith( is 9 tekens!
-        // iPosEnd - (iPosStart + 9): Dit bepaalt de lengte van de substring. De lengte wordt berekend door het verschil te nemen tussen de positie van de sluitende haak en de startpositie van de parameters van endswith(.        
-        cEndsWithPart = SUBSTRING(piQueryString,iPosStart + 9, iPosEnd - (iPosStart + 9)). //shiittt 
+        /* +9: Omdat je de string endswith( wilt overslaan, tel je 9 op bij de startpositie. De lengte van het woord endswith( is 9 tekens!
+           iPosEnd - (iPosStart + 9): Dit bepaalt de lengte van de substring. De lengte wordt berekend door het verschil te nemen tussen de positie van de sluitende haak en de startpositie van de parameters van endswith(. */ 
+
+        cEndsWithPart = SUBSTRING(piQueryString,iPosStart + 9, iPosEnd - (iPosStart + 9)).  
         
         cEndsWithField = ENTRY(1,cEndsWithPart,","). //CustNum
-        
-        DO i = 1 TO NUM-ENTRIES(cFieldListNames):
-
-            IF ENTRY(i,cFieldListNames) = ENTRY(2,cEndsWithField,".") THEN
-                cDataType = ENTRY(i,cFieldListTypes).
-        END.
-        
-/*        MESSAGE  "cEndsWithField = " cEndsWithField SKIP*/
-/*                 "cDataType = " cDataType               */
-/*            VIEW-AS ALERT-BOX.                          */
-
-        
+                        
         cEndsWithValue = ENTRY(2,cEndsWithPart,","). 
         cEndsWithValue = TRIM(cEndsWithValue,"'").
         
+        cDataType = getDataType(cEndsWithField).
+        
         replaceString  = SUBSTITUTE("&1 MATCHES '*&2'",
-                                   IF cDataType = "integer" 
+                                   IF cDataType <> "character" 
                                         THEN "STRING(" + cEndsWithField + ")" 
                                         ELSE cEndsWithField,
                                    cEndsWithValue).
